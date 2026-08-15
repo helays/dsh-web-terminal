@@ -137,6 +137,8 @@ export function apply(ctx: Context): void {
     const dispose = sctx.commands.register({
       name: 'terminal',
       description: '打开交互式终端 Tab',
+      // 无 input → 菜单选中/裸回车即单步直达；不记录 args（命令无参数）
+      recordInput: false,
       handler: async (_invocation: CommandInvocation): Promise<CommandResult> => ({
         kind: 'success',
         text: 'switched to terminal',

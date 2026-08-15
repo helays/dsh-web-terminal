@@ -33,6 +33,8 @@ await build({
     // host 半通过 profile 闭包解析官方包，不打进 bundle
     '@deepseek-ai/cordis',
     '@deepseek-ai/dsh-host-webserver',
+    '@deepseek-ai/dsh-settings',
+    '@deepseek-ai/schemastery',
   ],
   logLevel: 'warning',
   sourcemap: false,

@@ -8,13 +8,20 @@ const PREFIX = '/terminal'
 
 export interface TerminalViewInjected {
   /** 确保该会话有 PTY，返回后端 terminalId（创建会话在挂载时惰性发生）。 */
-  ensureTerminal: (sessionId: string, cols: number, rows: number) => Promise<string>
+  ensureTerminal: (
+    sessionId: string,
+    cols: number,
+    rows: number,
+    cwd?: string,
+  ) => Promise<string>
 }
 
 interface TerminalViewProps {
   sessionId: string
   ensureTerminal: TerminalViewInjected['ensureTerminal']
   t: (key: 'view.terminal') => string
+  /** 标准套件：读当前 workspace 列表以取绝对路径（打开终端默认工作目录）。 */
+  useWorkspaces?: <T = unknown>(selector: (s: unknown) => T) => T
 }
 
 const TERM_THEME = {
@@ -34,10 +41,20 @@ function injectXtermCss() {
   document.head.appendChild(link)
 }
 
-export function TerminalView({ sessionId, ensureTerminal, t }: TerminalViewProps) {
+export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: TerminalViewProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
   const [connection, setConnection] = useState<'connecting' | 'open'>('connecting')
+
+  // 当前会话关联的 workspace 绝对路径（默认工作目录；切换会话会更新）
+  const workspacePath = useWorkspaces?.((state: unknown) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = state as { items?: Array<{ path?: string; sessionIds?: string[] }> }
+    const items = s?.items ?? []
+    const active =
+      items.find((w) => (w.sessionIds ?? []).includes(sessionId)) ?? items[0] ?? null
+    return active?.path ?? ''
+  }) ?? ''
 
   // 首次/重挂载：确保有 PTY 会话（会话池在 host，组件只 attach，绝不销毁）
   useEffect(() => {
@@ -69,18 +86,26 @@ export function TerminalView({ sessionId, ensureTerminal, t }: TerminalViewProps
     doFit()
     fitTimer = window.setTimeout(doFit, 100)
 
+    // 切到「终端」tab 自动获得输入焦点（组件挂载即视图激活）
+    term.focus()
+    const focusTimer = window.setTimeout(() => term.focus(), 150)
+
     let socket: WebSocket | null = null
     const initialCols = term.cols
     const initialRows = term.rows
 
-    ensureTerminal(sessionId, initialCols || 80, initialRows || 24)
+    ensureTerminal(sessionId, initialCols || 80, initialRows || 24, workspacePath)
       .then((id) => {
         if (!alive) return
         // 打开 WebSocket（路径精确匹配后端每会话 upgrade）
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
         const ws = new WebSocket(`${proto}//${location.host}${PREFIX}/ws/${id}`)
         socket = ws
-        ws.onopen = () => alive && setConnection('open')
+        ws.onopen = () => {
+          if (!alive) return
+          setConnection('open')
+          term.focus() // 连接就绪后再次抢焦点
+        }
         ws.onmessage = (ev) => term.write(ev.data as string)
         ws.onclose = () => {
           setConnection('connecting')
@@ -103,6 +128,7 @@ export function TerminalView({ sessionId, ensureTerminal, t }: TerminalViewProps
     return () => {
       alive = false
       if (fitTimer !== undefined) window.clearTimeout(fitTimer)
+      window.clearTimeout(focusTimer)
       if (socket) {
         // onclose 里别触发重连副作用：此处仅断开，不销毁 host 会话
         socket.onclose = null
@@ -115,7 +141,7 @@ export function TerminalView({ sessionId, ensureTerminal, t }: TerminalViewProps
       }
       term.dispose()
     }
-  }, [sessionId, ensureTerminal])
+  }, [sessionId, ensureTerminal, workspacePath])
 
   return (
     <div

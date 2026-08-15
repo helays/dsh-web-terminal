@@ -27,13 +27,18 @@ npx @deepseek-ai/dsh plugin --profile web add . -w
 # 然后重启 dsh web，再刷新页面
 ```
 
-### 方式二：从 GitHub 安装（发布后）
+### 方式二：从 GitHub 安装（已发布）
 
 ```bash
-dsh plugin --profile web add github:helays/dsh-web-terminal#<commit>
+# 首次安装（pin 到 commit，稳定可复现）
+dsh plugin --profile web add dsh-web-terminal@github:helays/dsh-web-terminal#89a82f2cce1d471a7f9ffab3f9ee164b19733a8d -w
+# 更新到最新 main
+dsh plugin --profile web add dsh-web-terminal@github:helays/dsh-web-terminal#main -w
 # 重启 dsh web，再刷新页面
 ```
 
+> ⚠️ **`-w` 是必需的**：当前 dsh profile 模板是 pnpm workspace 根（`pnpm-workspace.yaml` 含 `packages: [.]`），不带 `-w` 会报 `ERR_PNPM_ADDING_TO_ROOT`。`dsh plugin` 会将其余参数原样转发给 pnpm，`-w` 会一并传给 `add`。
+>
 > 安装后 **必须重启 `dsh web`**（插件集合变化需重启生效），然后刷新浏览器页面进入任意会话即可看到「终端」Tab。
 
 ## 🚀 使用
@@ -76,9 +81,11 @@ pnpm typecheck      # tsc --noEmit 类型检查
 3. 打 tag / 更新 README 里的 `<commit>` 引用。
 4. 检查仓库 topics：`dsh`、`dsh-bundle`、`deepseek-harness`、`dsh-plugin`（自动进入 Oh-My-DSH 等目录站同步）。
 
-## 📄 项目描述（GitHub）
+## 📄 项目描述（GitHub，粘贴到仓库 About）
 
-> DSH 插件：在 DeepSeek Harness Web 界面（对话/轨迹）顶部新增「终端」Tab，内置 xterm.js + node-pty 交互式终端，让你在编码完成后即时在终端执行指令调试。安装：`dsh plugin add` `github:helays/dsh-web-terminal#<commit>`
+> DSH 插件：在 DeepSeek Harness Web 界面（对话/轨迹）顶部新增「终端」Tab，内置 xterm.js + node-pty 交互式终端（Windows 走 ConPTY），让你在编码完成后即时在终端执行指令调试。会话与模型/agent 解耦，跨会话保活。安装：`dsh plugin --profile web add dsh-web-terminal@github:helays/dsh-web-terminal#89a82f2cce1d471a7f9ffab3f9ee164b19733a8d -w`
+
+**GitHub topics（在仓库 About → Topics 里添加）**：`dsh`、`dsh-bundle`、`deepseek-harness`、`dsh-plugin`、`terminal`
 
 ## License
 
@@ -88,10 +95,10 @@ MIT
 
 ## English
 
-A DSH bundle plugin that adds an interactive **Terminal** tab (xterm.js + node-pty) beside Chat/Trajectory in the DeepSeek Harness Web UI — for quickly running debug commands after coding.
+A DSH bundle plugin that adds an interactive **Terminal** tab (xterm.js + node-pty, Windows ConPTY) beside Chat/Trajectory in the DeepSeek Harness Web UI — for quickly running debug commands after coding. Sessions are decoupled from model/agent and survive tab switches.
 
 **Install:**
 ```bash
-dsh plugin --profile web add github:helays/dsh-web-terminal#<commit>
+dsh plugin --profile web add dsh-web-terminal@github:helays/dsh-web-terminal#89a82f2cce1d471a7f9ffab3f9ee164b19733a8d -w
 ```
 Restart `dsh web`, refresh, open a session, switch to the **Terminal** tab.

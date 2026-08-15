@@ -55,9 +55,15 @@
 
 ## 7. 安装 / 测试命令
 
-- 安装：`dsh plugin --profile web add <包路径>`（本地点：`dsh plugin --profile web add .`；git 源：`dsh plugin --profile web add github:helays/dsh-web-terminal#<commit>`）。
-- 构建验证：`tsc -b tsconfig.host.json && tsconfig.client.json` + `tsdown`。
-- 冒烟：本地 `file:` 安装 → 重启 `dsh web` → 刷新 → 进会话确认「终端」tab 可用。
+- 安装：`dsh plugin --profile web add <包>[@<source>] -w`。**必须带 `-w`**——当前 dsh profile 模板是 pnpm workspace 根（`pnpm-workspace.yaml` 含 `packages: [.]`），不带会报 `ERR_PNPM_ADDING_TO_ROOT`；`dsh plugin` 把其余参数原样转发给 pnpm。
+- 本地点：`dsh plugin --profile web add . -w`。
+- git 源：`dsh plugin --profile web add dsh-web-terminal@github:helays/dsh-web-terminal#<commit> -w`。
+- 构建验证：`node build.mjs`（产物：`lib/index.js` + `lib/client.js` + `lib/client.css`）；类型：`pnpm typecheck`（tsc --noEmit）。
+- 冒烟（已实证于 0.1.0-rc.6）：
+  1. host：重启 `dsh web` 后 `GET /terminal/sessions` 应返回 `{"sessions":[]}`、`GET /terminal/xterm.css` 应 200。
+  2. PTY：POST 建会话 + `ws://HOST/terminal/ws/<id>` 发送 `echo` 应回读输出。
+  3. client：`GET /plugins/dsh-web-terminal/client.js` 应 200（bundle 已被 client-modules 暴露）。
+  4. UI：进入会话看「终端」tab（需真实浏览器交互）。
 - 改 host half 需**重启 web**；改 client bundle 需重装 + 刷新页面；装/卸插件需重启。
 
 ## 8. 提交与发布

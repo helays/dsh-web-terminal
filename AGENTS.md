@@ -46,6 +46,13 @@
 - WebSocket 用 `ctx.webServer.registerUpgrade` + `Server.handleUpgrade`（复刻 `@deepseek-ai/dsh-client-connection` 的 websocket-downlink 模式）。
 - 工作目录默认 `process.cwd()`（即 `dsh web` 启动目录），可随会话指定。
 
+## 5.5 前端可选服务（重要教训）
+
+- **不要把可用性不确定的 client 服务放进 `inject` 数组**。`commandUi` 等依赖完整 UI 装配（如 `remote.commands`）的服务，直接放进 `inject` 并 `ctx.commandUi.register(...)` 会在其未就绪时抛 `Cannot read properties of undefined (reading 'effect')`，导致插件 apply 失败、**整页 UI 进不去**（曾真实发生）。
+- 正确姿势：**用 `ctx.inject(['commandUi'], (sctx) => { ... })` 条件注入**——只有服务真实可用才注册，不可用则静默跳过，绝不引发 apply 崩溃。与 host 半 `ctx.inject(['settings'], ...)` 同一模式。
+- 新增任何前端能力前，先判断它是否属于「完整浏览器装配才有」的服务；是就用条件注入包一层。
+- client bundle 由服务端**动态读取**（`/plugins/<id>/client.js`），改 client 代码通常**刷新页面即可**，不必重启 web；改 host 侧 / 装插件集合才需重启。
+
 ## 6. 构建
 
 - 一个包两个产物：`lib/index.js`（Node, ESM）+ `lib/client.js`（browser, CJS + ModuleLoader 包装）。

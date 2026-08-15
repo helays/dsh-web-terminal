@@ -1,27 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { NS } from './locales.ts'
+import { TerminalHost, type TerminalEntry, type TerminalKind } from './terminal.ts'
+import type { TerminalKey } from './locales.ts'
 
 const PREFIX = '/terminal'
-
-export interface TerminalViewInjected {
-  /** 确保该会话有 PTY，返回后端 terminalId（创建会话在挂载时惰性发生）。 */
-  ensureTerminal: (
-    sessionId: string,
-    cols: number,
-    rows: number,
-    cwd?: string,
-  ) => Promise<string>
-}
-
-interface TerminalViewProps {
-  sessionId: string
-  ensureTerminal: TerminalViewInjected['ensureTerminal']
-  t: (key: 'view.terminal') => string
-  /** 标准套件：读当前 workspace 列表以取绝对路径（打开终端默认工作目录）。 */
-  useWorkspaces?: <T = unknown>(selector: (s: unknown) => T) => T
-}
 
 const TERM_THEME = {
   foreground: '#e5e5e5',
@@ -29,7 +13,26 @@ const TERM_THEME = {
   selectionBackground: '#4a6da7',
 } as const
 
-/** 注入 xterm 样式 link（幂等）。 */
+/** 每种 kind 的短展示名（tab 标题 / auto 时按推荐显示）。 */
+const KIND_SHORT: Record<string, string> = {
+  auto: 'Shell',
+  pwsh: 'PowerShell',
+  powershell: 'Windows PowerShell',
+  bash: 'Bash',
+  zsh: 'Zsh',
+  sh: 'sh',
+  cmd: 'Command Prompt',
+  python: 'Python',
+  custom: 'Custom',
+}
+
+interface ShellCandidate {
+  kind: string
+  label: string
+  available: boolean
+}
+
+/** 打开 xterm 样式 link（幂等）。 */
 function injectXtermCss() {
   if (typeof document === 'undefined') return
   if (document.getElementById('dsh-web-terminal-xterm-css') !== null) return
@@ -40,21 +43,20 @@ function injectXtermCss() {
   document.head.appendChild(link)
 }
 
-export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: TerminalViewProps) {
+/** 单个终端 pane：xterm + ws，连接到 host PTY（宿主在 openPty 里惰性建并缓存 ptyId）。 */
+function TerminalPane({
+  sessionId,
+  termKey,
+  terminalHost,
+  cwd,
+}: {
+  sessionId: string
+  termKey: string
+  terminalHost: TerminalHost
+  cwd: string
+}) {
   const hostRef = useRef<HTMLDivElement>(null)
-  const [connection, setConnection] = useState<'connecting' | 'open'>('connecting')
 
-  // 当前会话关联的 workspace 绝对路径（默认工作目录；切换会话会更新）
-  const workspacePath = useWorkspaces?.((state: unknown) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const s = state as { items?: Array<{ path?: string; sessionIds?: string[] }> }
-    const items = s?.items ?? []
-    const active =
-      items.find((w) => (w.sessionIds ?? []).includes(sessionId)) ?? items[0] ?? null
-    return active?.path ?? ''
-  }) ?? ''
-
-  // 首次/重挂载：确保有 PTY 会话（会话池在 host，组件只 attach，绝不销毁）
   useEffect(() => {
     let alive = true
     injectXtermCss()
@@ -83,8 +85,6 @@ export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: Te
     }
     doFit()
     fitTimer = window.setTimeout(doFit, 100)
-
-    // 切到「终端」tab 自动获得输入焦点（组件挂载即视图激活）
     term.focus()
     const focusTimer = window.setTimeout(() => term.focus(), 150)
 
@@ -92,21 +92,24 @@ export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: Te
     const initialCols = term.cols
     const initialRows = term.rows
 
-    ensureTerminal(sessionId, initialCols || 80, initialRows || 24, workspacePath)
+    terminalHost
+      .openPty(sessionId, termKey, {
+        cols: initialCols || 80,
+        rows: initialRows || 24,
+        cwd: cwd || undefined,
+      })
       .then((id) => {
         if (!alive) return
-        // 打开 WebSocket（路径精确匹配后端每会话 upgrade）
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
         const ws = new WebSocket(`${proto}//${location.host}${PREFIX}/ws/${id}`)
         socket = ws
         ws.onopen = () => {
           if (!alive) return
-          setConnection('open')
-          term.focus() // 连接就绪后再次抢焦点
+          term.focus()
         }
         ws.onmessage = (ev) => term.write(ev.data as string)
         ws.onclose = () => {
-          setConnection('connecting')
+          /* 断线重连由重挂载/切换驱动；此处不自杀 */
         }
         ws.onerror = () => ws.close()
         term.onData((data) => {
@@ -128,7 +131,6 @@ export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: Te
       if (fitTimer !== undefined) window.clearTimeout(fitTimer)
       window.clearTimeout(focusTimer)
       if (socket) {
-        // onclose 里别触发重连副作用：此处仅断开，不销毁 host 会话
         socket.onclose = null
         socket.onerror = null
         try {
@@ -139,7 +141,150 @@ export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: Te
       }
       term.dispose()
     }
-  }, [sessionId, ensureTerminal, workspacePath])
+  }, [sessionId, termKey, terminalHost, cwd])
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        padding: '0 4px 4px',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+        background: '#1e1e1e',
+      }}
+      ref={hostRef}
+    />
+  )
+}
+
+interface TerminalViewProps {
+  sessionId: string
+  terminalHost: TerminalHost
+  t: (key: TerminalKey) => string
+  /** 标准套件：读当前 workspace 列表以取绝对路径（终端默认工作目录，跟随会话）。 */
+  useWorkspaces?: <T = unknown>(selector: (s: unknown) => T) => T
+}
+
+export function TerminalView({ sessionId, terminalHost, t, useWorkspaces }: TerminalViewProps) {
+  // 会话缓存里「当前这端的多终端列表」——本地状态，来源 host.getEntries（闭包持久）。
+  const [entries, setEntries] = useState<TerminalEntry[]>(() =>
+    [...terminalHost.getEntries(sessionId)],
+  )
+  const [activeKey, setActiveKey] = useState<string | null>(null)
+  const [shells, setShells] = useState<ShellCandidate[]>([])
+
+  // 首次进入：自动建一个 auto 终端；并行拉 shell 候选供下拉。
+  useEffect(() => {
+    terminalHost.getEntries(sessionId)
+    if (terminalHost.getEntries(sessionId).length === 0) {
+      const first = terminalHost.addEntry(sessionId, 'auto')
+      setEntries([...terminalHost.getEntries(sessionId)])
+      setActiveKey(first.key)
+    } else {
+      setEntries([...terminalHost.getEntries(sessionId)])
+      setActiveKey(terminalHost.getEntries(sessionId)[0]?.key ?? null)
+    }
+    fetch(`${PREFIX}/config`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        const list = b?.shells as ShellCandidate[] | undefined
+        if (Array.isArray(list)) setShells(list)
+      })
+      .catch(() => {
+        /* 下拉候选加载失败则可降级为仅 auto */
+      })
+  }, [sessionId, terminalHost])
+
+  const active = entries.find((e) => e.key === activeKey) ?? entries[0] ?? null
+
+  // 切换会话：sessionId 变化重挂载本组件，重读该会话条目。
+  const addTerminal = useCallback(() => {
+    const entry = terminalHost.addEntry(sessionId, 'auto')
+    setEntries([...terminalHost.getEntries(sessionId)])
+    setActiveKey(entry.key)
+  }, [sessionId, terminalHost])
+
+  const removeTerminal = useCallback(
+    (key: string) => {
+      terminalHost.removeEntry(sessionId, key)
+      const next = [...terminalHost.getEntries(sessionId)]
+      setEntries(next)
+      // 活动项被删则切到剩余第一个
+      setActiveKey((cur) => (next.length ? (next.find((e) => e.key === cur)?.key ?? next[0].key) : null))
+    },
+    [sessionId, terminalHost],
+  )
+
+  const changeKind = useCallback(
+    (key: string, kind: TerminalKind) => {
+      terminalHost.setKind(sessionId, key, kind)
+      setEntries([...terminalHost.getEntries(sessionId)])
+    },
+    [sessionId, terminalHost],
+  )
+
+  // 当前会话关联的 workspace 绝对路径（终端默认工作目录，跟随会话）
+  const workspacePath = useWorkspaces?.((state: unknown) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = state as { items?: Array<{ path?: string; sessionIds?: string[] }> }
+    const items = s?.items ?? []
+    const hit = items.find((w) => (w.sessionIds ?? []).includes(sessionId)) ?? items[0] ?? null
+    return hit?.path ?? ''
+  }) ?? ''
+
+  // 下拉候选：可用的 + 固定 auto
+  const kindOptions = useMemo(() => {
+    const avail = shells.filter((s) => s.kind !== 'auto' && s.kind !== 'custom' && s.available)
+    return [{ kind: 'auto', label: '自动（按系统推荐）' }, ...avail]
+  }, [shells])
+
+  const toolbarStyle: CSSProperties = {
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+    padding: '6px 8px',
+    flexShrink: 0,
+    borderBottom: '1px solid rgba(128,128,128,0.25)',
+  }
+  const tabStyle = (isActive: boolean): CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '3px 8px',
+    border: '1px solid rgba(128,128,128,0.35)',
+    borderRadius: 6,
+    fontSize: 12,
+    cursor: 'pointer',
+    background: isActive ? 'rgba(80,140,230,0.22)' : 'transparent',
+    color: 'inherit',
+    whiteSpace: 'nowrap',
+  })
+  const addBtn: CSSProperties = {
+    ...tabStyle(false),
+    borderStyle: 'dashed',
+    background: 'transparent',
+    opacity: 0.8,
+  }
+  const closeX: CSSProperties = {
+    border: 'none',
+    background: 'transparent',
+    color: 'inherit',
+    opacity: 0.6,
+    cursor: 'pointer',
+    fontSize: 12,
+    padding: 0,
+    lineHeight: 1,
+  }
+  const selectStyle: CSSProperties = {
+    background: 'rgba(128,128,128,0.08)',
+    border: '1px solid rgba(128,128,128,0.35)',
+    borderRadius: 6,
+    padding: '3px 6px',
+    color: 'inherit',
+    fontSize: 12,
+    fontFamily: 'inherit',
+  }
 
   return (
     <div
@@ -148,23 +293,65 @@ export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: Te
         flexDirection: 'column',
         height: '100%',
         minHeight: 0,
-        position: 'relative',
-        paddingTop: 4,
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 8px', flexShrink: 0 }}>
-        <span style={{ opacity: 0.7, fontSize: 12 }}>
-          {t('view.terminal')}
-        </span>
-        <span style={{ opacity: 0.5, fontSize: 12 }} data-testid="dsh-terminal-status">
-          {connection === 'open' ? '● 已连接' : '… 连接中'}
-        </span>
+      {/* 工具条：左 = 多终端 tab 卡片 +「+」；右 = 当前终端类型下拉 */}
+      <div style={toolbarStyle}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: 1, minWidth: 0, overflowX: 'auto' }}>
+          {entries.map((e) => (
+            <div style={tabStyle(e.key === active?.key)} key={e.key} onClick={() => setActiveKey(e.key)}>
+              <span>{KIND_SHORT[e.kind] ?? e.kind}</span>
+              <button
+                type="button"
+                aria-label="close terminal"
+                title="关闭"
+                style={closeX}
+                onClick={(ev) => {
+                  ev.stopPropagation()
+                  removeTerminal(e.key)
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button type="button" title={t('terminal.new')} aria-label={t('terminal.new')} style={addBtn} onClick={addTerminal}>
+            +
+          </button>
+        </div>
+
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, opacity: 0.75 }}>
+          {t('terminal.kind')}
+          <select
+            style={selectStyle}
+            value={active?.kind ?? 'auto'}
+            disabled={!active}
+            onChange={(ev) => {
+              if (active) changeKind(active.key, ev.target.value as TerminalKind)
+            }}
+          >
+            {kindOptions.map((o) => (
+              <option key={o.kind} value={o.kind}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-      <div
-        ref={hostRef}
-        style={{ flex: 1, minHeight: 0, padding: '0 4px 4px', overflow: 'hidden', boxSizing: 'border-box' }}
-      />
+
+      {/* 活动 pane：key 含 kind，切 shell 类型或切 tab 时重挂载重连 */}
+      {active ? (
+        <TerminalPane
+          key={`${active.key}:${active.kind}`}
+          sessionId={sessionId}
+          termKey={active.key}
+          terminalHost={terminalHost}
+          cwd={workspacePath}
+        />
+      ) : (
+        <div style={{ flex: 1 }} />
+      )}
     </div>
   )
 }

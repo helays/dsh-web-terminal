@@ -51,7 +51,8 @@
   - 持续会话（进程常驻，多次命令，不用每次重开）。
 - 🔄 **会话保活 + 断线回放**：切走再切回、甚至刷新页面，自动重连并补齐滚动历史（会话池在插件侧持有）。
 - 🚪 **零侵入对话**：完全独立于 agent 流，不占用上下文 token，不混入会话记录。
-- ⚡ **即时可用、零配置**：默认 Windows 自动用 PowerShell、POSIX 自动用 bash；可在设置面板一键换 `bash / zsh / pwsh / powershell / cmd / python` 或填自定义 shell 路径。
+- ⚡ **即时可用、零配置**：默认 Windows 自动用 PowerShell、POSIX 自动用 bash；终端 Tab 内多终端并存，每条终端的 shell 类型（`bash / zsh / pwsh / powershell / cmd / python` 等）可在右侧下拉随时切换。
+- 🗂️ **多终端并存**：同一个「终端」Tab 里可开多个终端，左侧 tab 卡片切换，各自进程独立。
 - ⌨️ composer 输入 `/terminal`，候选一键直达终端（与官方 `/plan` 同源的单步命令），连空会话也能开终端。
 - 🧩 纯 DSH bundle 插件，安装即用，与官方 UI 槽位原生集成。
 
@@ -132,8 +133,11 @@ pnpm typecheck   # tsc --noEmit 类型检查
 **Q：只想临时跑一条命令，也要开终端吗？**
 打开后进程常驻，你可以在里面持续操作；切走再切回仍是同一个 shell。
 
-**Q：能换 shell / 自定义路径吗？**
-可以。在「设置 → 插件 → 终端」面板里切换 `bash / zsh / pwsh / powershell / cmd / python`，或填自定义 shell 绝对路径与附加参数。默认 Windows→PowerShell、POSIX→bash 自动识别。
+**Q：能换 shell 吗？**
+可以，而且按每条终端单独换。在「终端」Tab 右上角的“终端类型”下拉里切换 `bash / zsh / pwsh / powershell / cmd / python` 等（取自当前系统可用候选），切换即重启当前这条终端为新 shell。默认 Windows→PowerShell、POSIX→bash 自动识别。
+
+**Q：终端默认在哪个目录打开？**
+默认跟随当前对话会话的 workspace 目录；无法打开时才回退到 `dsh web` 的启动目录。无需额外配置。
 
 ---
 

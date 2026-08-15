@@ -41,6 +41,9 @@
 
 - 顶部 tab 通过 `conversation.view` 槽位新增条目实现（`ctx.slots.inject` + `ctx.slots.register`），参照官方 `@deepseek-ai/dsh-client-ui-trajectory`；`id: 'terminal'`，`order` 设在 trajectory 之后。
 - `conversation.view` 是 **session 作用域**：只有进入会话时才渲染 tab 栏。终端会话池必须放在**插件级（apply 闭包）**，视图每次挂载只 emit/attach，绝不销毁会话，保证跨会话/刷新保活。
+- **多终端**：「终端」Tab 内支持多个终端 tab。client 用一个 by-session 的注册表（`TerminalHost`，见 `src/client/terminal.ts`）管理每个终端条目的 `kind`/`ptyId`；工具条左 = 终端 tab 卡片 +「+」，右 = 当前终端 shell 类型下拉（切换会重启该终端为新 shell）。
+- **不注册 `settings.plugin.item` 设置卡**（已移除）；shell 类型在每个终端上通过「终端」Tab 右侧下拉切换，**不再持久化到 dsh settings**，也无可配置的默认工作目录（`cwd` 仅来自请求携带的 workspace 路径或 `process.cwd()`）。
+- `TerminalKind` 等 client 类型放 `src/client/terminal.ts`（浏览器安全）；不要从 client import host 的 `src/resolve.ts`（会拉进 `node:child_process` 到浏览器 bundle）。
 
 ## 5. 后端约定
 

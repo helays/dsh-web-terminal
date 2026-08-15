@@ -51,7 +51,8 @@ After the model writes code, **stay in the conversation** and open a shell of yo
   - persistent session (process stays resident, so you can chain commands without restarting).
 - 🔄 **Session survival + scrollback replay**: tab away and back, even reload the page — it auto-reconnects and replays recent output (the pool lives plugin-side).
 - 🚪 **Zero conversation pollution**: fully independent of the agent stream — no context tokens, no chat-log noise.
-- ⚡ **Zero config**: PowerShell on Windows and bash on POSIX are auto-detected; switch `bash / zsh / pwsh / powershell / cmd / python` or a custom shell path from the settings panel anytime.
+- ⚡ **Zero config**: PowerShell on Windows and bash on POSIX are auto-detected; run **multiple terminals side by side** and switch each one's shell type (`bash / zsh / pwsh / powershell / cmd / python`, …) from a dropdown right in the Terminal tab.
+- 🗂️ **Multi-terminal**: open several terminals in one tab, switch with the tab cards, each with its own process.
 - ⌨️ Type `/terminal` in the composer to jump straight to the terminal (a single-step command, same source as the official `/plan`) — works even in an empty new session.
 - 🧩 A pure DSH bundle plugin: install, run, natively integrated with the official UI slots.
 
@@ -133,8 +134,11 @@ Yes. The session pool lives plugin-side and survives across sessions and reloads
 **Q: I only want to run a single command — must I open a terminal?**
 Once open the process stays resident, so you can keep operating inside it; switching away and back returns to the same shell.
 
-**Q: Can I swap shells / use a custom path?**
-Yes. In **Settings → Plugins → Terminal**, pick `bash / zsh / pwsh / powershell / cmd / python` or enter a custom absolute shell path and extra args. It auto-detects PowerShell on Windows and bash on POSIX by default.
+**Q: Can I swap shells?**
+Yes — per terminal. In the **Terminal** tab, use the “Terminal type” dropdown (top-right) to pick `bash / zsh / pwsh / powershell / cmd / python` (from the shells detected on your system); switching restarts that terminal with the new shell. It auto-detects PowerShell on Windows and bash on POSIX by default.
+
+**Q: Where do terminals open by default?**
+In the current conversation's workspace directory (falling back to the `dsh web` startup directory if unavailable). No configuration needed.
 
 ---
 

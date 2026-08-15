@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { NS } from './locales.ts'
@@ -43,7 +42,6 @@ function injectXtermCss() {
 
 export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: TerminalViewProps) {
   const hostRef = useRef<HTMLDivElement>(null)
-  const [fullscreen, setFullscreen] = useState(false)
   const [connection, setConnection] = useState<'connecting' | 'open'>('connecting')
 
   // 当前会话关联的 workspace 绝对路径（默认工作目录；切换会话会更新）
@@ -153,9 +151,6 @@ export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: Te
         position: 'relative',
         paddingTop: 4,
         boxSizing: 'border-box',
-        ...(fullscreen
-          ? { position: 'fixed', inset: 0, zIndex: 999, background: '#1e1e1e', padding: 8 }
-          : {}),
       }}
     >
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 8px', flexShrink: 0 }}>
@@ -165,18 +160,6 @@ export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: Te
         <span style={{ opacity: 0.5, fontSize: 12 }} data-testid="dsh-terminal-status">
           {connection === 'open' ? '● 已连接' : '… 连接中'}
         </span>
-        <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          onClick={() => navigator.clipboard?.writeText('')}
-          title="复制粘贴方法：选中后使用 Ctrl+C / Ctrl+V（web 终端默认行为）"
-          style={LINK_BTN}
-        >
-          提示
-        </button>
-        <button type="button" onClick={() => setFullscreen((v) => !v)} style={LINK_BTN}>
-          {fullscreen ? '退出全屏' : '全屏'}
-        </button>
       </div>
       <div
         ref={hostRef}
@@ -184,14 +167,4 @@ export function TerminalView({ sessionId, ensureTerminal, t, useWorkspaces }: Te
       />
     </div>
   )
-}
-
-const LINK_BTN: CSSProperties = {
-  background: 'transparent',
-  border: '1px solid rgba(128,128,128,0.4)',
-  color: 'inherit',
-  borderRadius: 4,
-  fontSize: 12,
-  padding: '2px 8px',
-  cursor: 'pointer',
 }

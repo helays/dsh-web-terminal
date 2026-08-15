@@ -15,6 +15,8 @@ import pty from 'node-pty'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-commands'
+import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 import { detectShells, buildArgv, TERMINAL_KINDS, type TerminalKind } from './resolve.ts'
@@ -125,6 +127,22 @@ export function apply(ctx: Context): void {
     sctx.effect(() => () => {
       if (configScope === scope) configScope = null
     })
+  })
+
+  // ===== /terminal 作为 host 目录命令注册（与 /plan /model 同源） =====
+  // 这样它会出现在浏览器「composer 左下角 + 图标」的 command 下拉里，方向键选中 + 回车 = 单步执行。
+  // handler 在 Node 端运行、本身无动作（返回成功即可）；真正的「切到终端 Tab」由浏览器端监听
+  // command/executed.execute 的本地确认后再做。命令路径绝不创建 PTY（只切视图）。
+  ctx.inject(['commands'], (sctx) => {
+    const dispose = sctx.commands.register({
+      name: 'terminal',
+      description: '打开交互式终端 Tab',
+      handler: async (_invocation: CommandInvocation): Promise<CommandResult> => ({
+        kind: 'success',
+        text: 'switched to terminal',
+      }),
+    })
+    sctx.effect(() => dispose)
   })
 
   /** 当前权威配置（已注册时读 scope 的 resolved value，否则内存兜底）。 */

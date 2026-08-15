@@ -62,13 +62,16 @@
 - 正确姿势：**保持方法调用** `ctx.slots.register({...}, Comp)`——`this` 绑定到 slots runtime。若为绕过类型而 `as any`，也应 `(ctx.slots as any).register({...})` 一次性调用，不要拆成中间变量再调用。
 - 同理适用于其它 `ctx.*` 服务方法（register/inject/update/...）：一律保持 `ctx.svc.method(...)` 直接调用，别脱 this。
 
-## 5.7 交互式斜杠命令要“单步直达”（重要教训）
+## 5.7 交互式斜杠命令要“单步直达”且进「+」菜单（重要教训）
 
-- `/terminal` 这类**纯客户端、选中即执行**的命令，**不要用 commandUi 的 `kind:'popupSelect'` 贡献**。该 kind 选中后会再弹一个二级 popup shell，需要再回车一次才触发 onSelect——用户感觉是“选完回车不生效”，不像 `/plan` `/model` 那样下拉里方向键选中 + 回车 = 单步执行。
-- 正确姿势：**直接向 `inputTriggers` 注册独立 slash source**（`ctx.inject(['inputTriggers'], sctx => sctx.inputTriggers.registerSource({...}))`，条件注入）。source 的 `onPick` 返回 `{ text: '' }` 会清除草稿里的 `/terminal` token 并立刻执行自定义动作；`matchEnter` 返回 `'handled'` 处理“裸 `/terminal` + 回车”路径（抑制默认发送）。
-- 因为这是纯前端行为、无法走 host `remote.commands` 目录（那才会像 `/plan` 一样被归到 `command` 组），自定义 source 会出现为**独立分组**；可接受。
-- `onPick`/`onSelect` 是纯回调，拿不到 React 注入的 bound actions。需要切共享 chat store 的活跃视图时，用「恒挂载的会话作用域条目声明 shared store，在其 inject 工厂里把 live `actions.setView` 捕进 apply 闭包」的做法（见 `ViewSwitchCarrier`）。
-- 相关类型走 `@deepseek-ai/dsh-client-ui-input-trigger/client`（`InputTriggerSource`、`PickOutcome`），需加为 **devDependency** 才能在 tsc 里解析。
+- `/terminal` 这类**纯客户端、选中即执行**的命令，最终正确做法是**注册成 host 目录命令**（`ctx.inject(['commands'], sctx => sctx.commands.register({ name:'terminal', description, handler }))`，参照官方 `dsh-plan-mode` 的 `/plan` 样板）。这样它才：
+  - 出现在「composer 左下角 + 图标」的 command 下拉（`toggleSource("command")` 只认 commandUi 的 command 源 = host 目录命令）；
+  - 无 `input` 字段 → 方向键选中/裸敲 + 回车 = **单步直达**（与 `/plan` 完全一样）；`/model` 其实是 commandUi popupSelect 贡献（要二级弹窗），别拿它当单步范例。
+- 浏览器切视图：host 命令执行成功 → 本机发 `command/executed`(sessionId, name, result) 确认（仅提交方浏览器收到）→ 客户端 `ctx.on('command/executed', …)` 里 `name==='terminal'` 时切视图。host handler 返回合法 `CommandResult`（`{kind:'success', text?}` / `{kind:'error', text}`）。
+- **不要**用 `inputTriggers` 注册额外 slash source 到 `/`：它不会进 `+` 菜单（那是 `toggleSource("command")` 独享），还会与原命令/目录在 `matchEnter` 仲裁里歧义，需移除。
+- 切换写面：`command/executed` 是纯回调，拿不到 React 注入的 bound actions。要切共享 chat store 的活跃视图，用「始终渲染（哪怕 blank）的会话作用域条目声明共享 store，在其 inject 工厂里把 live `actions.setView` 捕进 apply 闭包」——carrier 放 `conversation.input.dock`（不是 `conversation.session.header.actions`，后者在空会话 blank 态整段隐藏、捕获不到）。
+- 新会话兼容（blank）：`conversation.session` 主体在 `blank && composerPhase==='blank'` 时 return null（视图环不渲染），header 同态隐藏。blank 下 `/terminal` 后，用 dock carrier 在 `blank && composerPhase==='blank' && view==='terminal'` 时就地挂 `TerminalView`，以终端取代空白英雄页；非 blank 走常规视图环 tab（无双挂载）。
+- 类型 devDeps：`@deepseek-ai/dsh-commands`（host `CommandDefinition`/`CommandResult` 与 `ctx.commands` 增强）、`@deepseek-ai/dsh-client-ui-commands`（`command/executed` 事件声明）。都只 import type，不加重 bundle。
 
 ## 6. 构建
 

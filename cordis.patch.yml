@@ -1,0 +1,6 @@
+# dsh-web-terminal bundle patch: mounts the terminal tab into the web profile.
+# The web surface's conversation.view list owns the tab ring (chat, trajectory,
+# ...). A later user layer can disable this row by id.
+- insert:
+    - id: terminal-tab
+      name: dsh-web-terminal

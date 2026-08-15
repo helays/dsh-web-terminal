@@ -90,10 +90,11 @@ export function apply(ctx: Context): void {
   }
 
   const registerTrigger = (chatStore: unknown): (() => void) => {
-    // type-only：chat store handle 未在包外公开契约，用宽松断言（运行时由渲染器按 handle 注入 actions）
+    // 关键：保持 `ctx.slots.register` 的 this 绑定——不能解构出方法再调用，
+    // 否则 this 丢失会触发 slots 内部 `this.ctx.effect` 崩（此前 loader 报错即此因）。
+    // type-only：chat store handle 未在包外公开契约，用宽松断言（运行时由渲染器按 handle 注入 actions）。
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const register = (ctx.slots as any).register as (...args: any[]) => () => void
-    return register(
+    return (ctx.slots as any).register(
       {
         name: 'conversation.session.header.actions',
         id: 'dsh-web-terminal.terminal-trigger',

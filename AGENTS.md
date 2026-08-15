@@ -53,6 +53,12 @@
 - 新增任何前端能力前，先判断它是否属于「完整浏览器装配才有」的服务；是就用条件注入包一层。
 - client bundle 由服务端**动态读取**（`/plugins/<id>/client.js`），改 client 代码通常**刷新页面即可**，不必重启 web；改 host 侧 / 装插件集合才需重启。
 
+## 5.6 前端「service 方法解构」丢 this（重要教训）
+
+- **不要先把 `ctx.slots.register` 等 service 方法解构出来再调用**（如 `const register = ctx.slots.register; register({...})`）。cordis 的 service 是 proxy，解构后 `this` 丢失，`register` 内部 `this.ctx.effect` 会因 `this.ctx` 为 undefined 抛 `Cannot read properties of undefined (reading 'effect')`，导致插件 apply 失败、整页 UI 进不去（`slots.register` 就是宿主，曾真实发生且报了 loader entry 崩溃栈）。
+- 正确姿势：**保持方法调用** `ctx.slots.register({...}, Comp)`——`this` 绑定到 slots runtime。若为绕过类型而 `as any`，也应 `(ctx.slots as any).register({...})` 一次性调用，不要拆成中间变量再调用。
+- 同理适用于其它 `ctx.*` 服务方法（register/inject/update/...）：一律保持 `ctx.svc.method(...)` 直接调用，别脱 this。
+
 ## 6. 构建
 
 - 一个包两个产物：`lib/index.js`（Node, ESM）+ `lib/client.js`（browser, CJS + ModuleLoader 包装）。

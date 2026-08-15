@@ -4,21 +4,15 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
-import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
 import { en, NS, zh } from './locales.ts'
 import { TerminalView, type TerminalViewInjected } from './TerminalView.tsx'
 import { TerminalSettingsCard } from './TerminalSettingsCard.tsx'
+import { TerminalTrigger } from './TerminalTrigger.tsx'
 
 const PREFIX = '/terminal'
 
-/** cordis 服务级 inject：slots、locale、sessions。
- * commandUi 用条件注入 ctx.inject 接入，comandUi 不可用时静默跳过，绝不影响插件加载。 */
+/** cordis 服务级 inject：slots（槽位）、locale（字典）、sessions。 */
 export const inject = ['slots', 'locale', 'sessions']
-
-/** 恒挂载的空渲染条目：捕获每会话 setView actions（/terminal 命令切换视图用）。 */
-function ViewSwitchCapture(): null {
-  return null
-}
 
 export function apply(ctx: Context): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-web-terminal: dictionaries')
@@ -78,54 +72,52 @@ export function apply(ctx: Context): void {
     ),
   )
 
-  // ===== /terminal 斜杠命令：切到「终端」视图（条件注入，commandUi 不可用时静默跳过） =====
-  ctx.inject(['commandUi'], (sctx) => {
-    // 捕获共享 chat store 的 bound actions（运行时由渲染器追加；类型层未公开该契约，用宽松断言）
+  // ===== 输入框识别 /terminal 并切到「终端」视图 =====
+  // 不依赖 commandUi（那条链在当前 Web 装配里运行时不可靠，且曾致 loader 崩溃）。
+  // 用 document 捕获阶段 keydown 拦截 composer 纯回车 + draft 命中，见 TerminalTrigger。
+  // store handle 从 slots 注册表“抠”出 ui-conversation 的共享 chat store（chat 视图条目持有）：
+  //     —— 声明同一 handle 后，渲染器把该会话的 bound actions(setView) 追加进组件 props。
+  //     —— 拿不到就订阅等待，绝不让 apply 抛错（对齐「宁可降级」红线）。
+  const fishChatStore = (): unknown => {
+    try {
+      const raw = ctx.slots.entries?.('conversation.view') as unknown as
+        | Array<{ options?: { id?: string }; store?: unknown }>
+        | undefined
+      return (raw ?? []).find((e) => e.options?.id === 'chat')?.store
+    } catch {
+      return undefined
+    }
+  }
+
+  const registerTrigger = (chatStore: unknown): (() => void) => {
+    // type-only：chat store handle 未在包外公开契约，用宽松断言（运行时由渲染器按 handle 注入 actions）
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const viewActions = new Map<string, { setView(view: string): void }>()
-    const rawEntries = ctx.slots.entries?.('conversation.view') as unknown as
-      | Array<{ options?: { id?: string }; store?: unknown }>
-      | undefined
-    const chatEntry = (rawEntries ?? []).find((e) => e.options?.id === 'chat')
-    const chatStore = chatEntry?.store
-
-    let disposeActions: (() => void) | undefined
-    if (chatStore !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const registerWithStore = (sctx.slots as any).register as (...a: any[]) => () => void
-      disposeActions = registerWithStore(
-        {
-          name: 'conversation.session.header.actions',
-          store: chatStore,
-          id: 'dsh-web-terminal.view-switch',
-          order: 1000,
-          inject: (sessionId: string, actions: unknown) => {
-            const set = (actions as { setView?: (v: string) => void } | undefined)?.setView
-            if (typeof set === 'function') viewActions.set(sessionId, { setView: set })
-            return {}
-          },
-        },
-        ViewSwitchCapture,
-      )
-    }
-
-    const disposeCommand = sctx.commandUi.register({
-      name: 'terminal',
-      description: '切换到「终端」视图',
-      available: () => true,
-      ui: {
-        kind: 'popupSelect',
-        options: async () => [{ id: 'terminal', label: t('view.terminal') }],
-        onSelect: (_option, session) => {
-          viewActions.get(session.sessionId)?.setView('terminal')
-        },
+    const register = (ctx.slots as any).register as (...args: any[]) => () => void
+    return register(
+      {
+        name: 'conversation.session.header.actions',
+        id: 'dsh-web-terminal.terminal-trigger',
+        order: 2000,
+        store: chatStore as never,
+        // 组件用标准 kit 的 useInput / inputActions + 注入的 actions(setView)
+        inject: () => ({}),
       },
-    })
+      TerminalTrigger,
+    )
+  }
 
-    return () => {
-      disposeActions?.()
-      disposeCommand()
-    }
+  ctx.slots.inject('conversation.session.header.actions', () => {
+    const handle = fishChatStore()
+    if (handle !== undefined) return registerTrigger(handle)
+    // 极端时序（本插件先于 ui-conversation apply）：订阅等 chat 条目出现，期间静默不注册
+    const unsub =
+      ctx.slots.subscribe?.('conversation.view', () => {
+        const late = fishChatStore()
+        if (late === undefined) return
+        unsub?.()
+        registerTrigger(late)
+      }) ?? (() => {})
+    return unsub
   })
 }
 

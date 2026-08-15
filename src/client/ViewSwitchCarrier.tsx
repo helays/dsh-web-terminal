@@ -53,13 +53,33 @@ export function ViewSwitchCarrier({
   const showBlankTerminal = blank === true && composerPhase === 'blank' && view === 'terminal'
   if (!showBlankTerminal) return null
 
+  // dock 槽是 hero 卡片内的窄条带，直接挂 TerminalView 会被压成扁条；给一个可视高度，
+  // 让它像「对话区里的终端面板」一样撑开（scrollBody 里 conversation.session 为 null，
+  // 因此这块区域空着可被终端占据）。非 blank 由视图环 tab 接管，这里返回 null，无双挂载。
   return (
-    <TerminalView
-      key="blank-terminal"
-      sessionId={sessionId}
-      ensureTerminal={ensureTerminal}
-      t={t}
-      useWorkspaces={useWorkspaces}
-    />
+    <div
+      data-dsh-terminal-blank
+      style={{
+        display: 'flex',
+        boxSizing: 'border-box',
+        width: '100%',
+        maxWidth: 'var(--dsh-composer-card-max-width, 760px)',
+        height: 'min(56vh, 460px)',
+        minHeight: 240,
+        margin: '0 auto',
+        borderRadius: 12,
+        border: '1px solid var(--dsw-alias-border-l2-darkmode-thin, rgba(120,120,128,0.35))',
+        background: '#1e1e1e',
+        overflow: 'hidden',
+      }}
+    >
+      <TerminalView
+        key="blank-terminal"
+        sessionId={sessionId}
+        ensureTerminal={ensureTerminal}
+        t={t}
+        useWorkspaces={useWorkspaces}
+      />
+    </div>
   )
 }

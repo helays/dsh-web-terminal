@@ -137,18 +137,6 @@ pnpm typecheck   # tsc --noEmit 类型检查
 
 ---
 
-## 📄 GitHub 仓库信息（About）
-
-**Description（一句话）**
-> DSH 插件：给 DeepSeek Harness 的 Web 界面加一个独立的真实 PTY「终端」Tab（xterm.js + node-pty，Windows ConPTY），编码后即时跑命令，与模型会话解耦、跨会话保活。
-
-**Topics**
-> `dsh` · `dsh-bundle` · `deepseek-harness` · `dsh-plugin` · `terminal` · `xterm` · `node-pty`
-
-> 添加 topics 后，插件会被 Oh-MY-DSH 等目录站自动收录，被更多人发现。
-
----
-
 ## 📝 License
 
 [MIT](./LICENSE) © [helays](https://github.com/helays)

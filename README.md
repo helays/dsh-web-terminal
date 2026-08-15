@@ -138,18 +138,6 @@ Yes. In **Settings → Plugins → Terminal**, pick `bash / zsh / pwsh / powersh
 
 ---
 
-## 📄 GitHub Repo Info (About)
-
-**Description (one-liner)**
-> A DSH plugin that adds a real, independent PTY Terminal tab (xterm.js + node-pty, Windows ConPTY) to the DeepSeek Harness web UI — run commands instantly after coding, decoupled from the model and surviving across sessions.
-
-**Topics**
-> `dsh` · `dsh-bundle` · `deepseek-harness` · `dsh-plugin` · `terminal` · `xterm` · `node-pty`
-
-> Adding these topics lets directories like Oh-MY-DSH pick the plugin up automatically so more people can find it.
-
----
-
 ## 📝 License
 
 [MIT](./LICENSE) © [helays](https://github.com/helays)

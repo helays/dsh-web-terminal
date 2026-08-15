@@ -1,22 +1,22 @@
 <!--
-  dsh-web-terminal — README (sales-oriented, bilingual)。
-  徽章为 shields.io；GitHub 动态徽章（stars/contributors）在仓库公开后自动生效。
+  dsh-web-terminal — English README.
+  Badges are shields.io; dynamic GitHub badges (stars/contributors, …) go live once the repo is public.
 -->
 
 <div align="center">
 
 # 🖥️ dsh-web-terminal
 
-**在 DeepSeek Harness 里，给你的 AI 编码工作台嵌一块「真·终端」。**
+**Give your AI coding workbench a real terminal — right inside DeepSeek Harness.**
 
-内置 **xterm.js + node-pty** 的交互式 **PTY** 终端，作为第三个 Tab（对话 · 轨迹 · **终端**）挂在 Web UI 顶部。
-模型跑完代码后，你**不用切窗口、不用离开对话**，直接在旁边开一个你自己的 shell —— 立即构建、git、测试、调试。
+An interactive **PTY** terminal powered by **xterm.js + node-pty**, mounted as a third tab (Chat · Trajectory · **Terminal**) at the top of the web UI.
+After the model writes code, **stay in the conversation** and open a shell of your own right next to it — build, commit, test, debug in one click.
 
 </div>
 
 <p align="center">
   <a href="https://github.com/helays/dsh-web-terminal/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellowgreen.svg?style=flat-square"/></a>
-  <a href="https://github.com/helays/dsh-web-terminal/releases"><img alt="Version" src="https://img.shields.io/badge/version-0.1.0-blue.svg?style=flat-square"/></a>
+  <a href="https://github.com/helays/dsh-web-terminal"><img alt="Version" src="https://img.shields.io/badge/version-0.1.0-blue.svg?style=flat-square"/></a>
   <a href="https://www.deepseek.com/harness"><img alt="DeepSeek Harness" src="https://img.shields.io/badge/platform-DeepSeek%20Harness-4f8cff.svg?style=flat-square"/></a>
   <a href="https://github.com/helays/dsh-web-terminal"><img alt="dsh-plugin" src="https://img.shields.io/badge/type-dsh--plugin-7c3aed.svg?style=flat-square"/></a>
   <a href="https://github.com/helays/dsh-web-terminal"><img alt="Stars" src="https://img.shields.io/github/stars/helays/dsh-web-terminal?style=flat-square&logo=github" /></a>
@@ -24,185 +24,132 @@
 </p>
 
 <p align="center">
-  <a href="#readme">中文</a> · <a href="#english-readme">English</a>
+  English  ·  <a href="./README.zh.md">中文</a>
 </p>
 
 ---
 
-## 💡 一分钟看懂
+## Why you'll love it
 
-| 🤯 痛点 | ✅ dsh-web-terminal |
+| The pain 😤 | The fix with dsh-web-terminal ✅ |
 |---|---|
-| 模型改完代码，只能 **复制粘贴** 回自己的终端的复现 | 在对话**旁边**打开一块**真实 PTY**，命令即输即跑 |
-| 一切都要挤进对话上下文，token 和噪音翻倍 | 终端与 **模型 / agent 会话完全解耦**——是你的私有终端，**零上下文占用** |
-| 换会话/刷新后命令和会话丢失，得重头再来 | **跨会话保活**：切走切回 / 刷新，自动重连并补回滚动历史 |
-| 每次只为一个命令开一次性 shell，效率低 | **持续进程**：打开一次，多次命令、常驻 shell（Ctrl+C 中断可再跑） |
+| After the model edits code, you copy-paste it back into your own terminal and fumble | Open a **real PTY** right **next to the chat** — type a command, run it instantly |
+| Everything has to squeeze into the conversation context, doubling tokens and noise | The terminal is **fully decoupled from the model / agent** — your private shell, **zero context cost** |
+| Switching sessions or refreshing loses your commands and session state | **Survives across sessions**: switch away / come back / refresh — auto reconnect and replay scrollback |
+| Spinning up a throwaway shell for a single command is slow | **Persistent process**: open once, run many commands on one resident shell (`Ctrl+C` interrupts, then keep going) |
 
-> 一句话：**把“写代码”和“跑代码”放进同一个界面，互不干扰。**
-
----
-
-## ✨ 核心卖点
-
-- 🗂️ 第三个 **「终端」Tab**，与「对话 / 轨迹」并列，一键切换。
-- 🧯 **真实 PTY，不是伪终端**：
-  - Windows 走 **ConPTY**，POSIX 用交互式 shell；
-  - 支持 `Ctrl+C` / `Ctrl+D` 等控制键、`resize` 窗口自适应、彩色 + 光标闪烁；
-  - 持续会话（进程常驻，多次命令，不用每次重开）。
-- 🔄 **会话保活 + 断线回放**：切走再切回、甚至刷新页面，自动重连并补齐滚动历史（会话池在插件侧持有）。
-- 🚪 **零侵入对话**：完全独立于 agent 流，不占用上下文 token，不混入会话记录。
-- ⚡ **即时可用**：默认零配置 —— Windows 自动用 PowerShell，POSIX 自动用 bash；可在设置面板一键换 `bash / zsh / pwsh / powershell / cmd / python` 或自定义 shell 路径。
-- ⌨️ 在 composer 输入 `/terminal`，候选一键直达终端（与官方 `/plan` 同源的单步命令），连空会话也能开终端。
-- 🧩 纯 DSH bundle 插件，安装即用，与官方 UI 槽位原生集成。
+> In one line: **put “writing code” and “running code” in the same place — without them interfering.**
 
 ---
 
-## 🚀 快速开始
+## ✨ Highlights
 
-> 环境：DeepSeek Harness **`0.1.0-rc.6`（next 通道）** 的 `web` profile。
+- 🗂️ A dedicated **Terminal** tab next to Chat & Trajectory — one click to switch.
+- 🧯 **A real PTY, not a toy**:
+  - Windows uses **ConPTY**; POSIX uses an interactive shell;
+  - full `Ctrl+C` / `Ctrl+D` control keys, `resize` auto-fit, color + cursor blink;
+  - persistent session (process stays resident, so you can chain commands without restarting).
+- 🔄 **Session survival + scrollback replay**: tab away and back, even reload the page — it auto-reconnects and replays recent output (the pool lives plugin-side).
+- 🚪 **Zero conversation pollution**: fully independent of the agent stream — no context tokens, no chat-log noise.
+- ⚡ **Zero config**: PowerShell on Windows and bash on POSIX are auto-detected; switch `bash / zsh / pwsh / powershell / cmd / python` or a custom shell path from the settings panel anytime.
+- ⌨️ Type `/terminal` in the composer to jump straight to the terminal (a single-step command, same source as the official `/plan`) — works even in an empty new session.
+- 🧩 A pure DSH bundle plugin: install, run, natively integrated with the official UI slots.
 
-### 安装
+---
+
+## 🚀 Quick Start
+
+> Requires: DeepSeek Harness **`0.1.0-rc.6` (next channel)** `web` profile.
+
+### Install
 
 ```bash
-# 方式一：GitHub（推荐，稳定可复现）
+# Option 1 — GitHub (recommended, reproducible)
 dsh plugin --profile web add dsh-web-terminal@github:helays/dsh-web-terminal#main -w
 
-# 方式二：本地开发目录
+# Option 2 — from a local dev checkout
 cd dsh-web-terminal && dsh plugin --profile web add . -w
 ```
 
-> ⚠️ **`-w` 必须带**：当前 dsh profile 模板是 pnpm workspace 根（`pnpm-workspace.yaml` 含 `packages: [.]`），
-> 不带会报 `ERR_PNPM_ADDING_TO_ROOT`。`dsh plugin` 会把其余参数原样转发给 pnpm。
+> ⚠️ **`-w` is required**: the current dsh profile template is a pnpm workspace root
+> (`pnpm-workspace.yaml` contains `packages: [.]`); omitting it triggers `ERR_PNPM_ADDING_TO_ROOT`.
+> `dsh plugin` forwards its remaining args to pnpm verbatim.
 >
-> 安装后**重启 `dsh web`**（插件集合/宿主变化需重启生效），再刷新浏览器页面。
+> After installing, **restart `dsh web`** (a changed plugin set / host needs a restart), then refresh the browser.
 
-### 使用
+### Usage
 
-1. 打开任意会话（进入后顶部出现 **对话 · 轨迹 · 终端**）；
-2. 点「**终端**」，或在输入框输 `/terminal`；
-3. 直接输命令，例如：
+1. Open any session (once you're inside, you'll see **Chat · Trajectory · Terminal** at the top).
+2. Click the **Terminal** tab, or type `/terminal` in the input box.
+3. Run commands directly, for example:
 
 ```bash
-npm run build   # 改完代码立刻构建
-git status      # 查看改动
-pytest          # 跑测试
+npm run build   # build right after the model edits code
+git status      # see what changed
+pytest          # run tests
 ```
 
-4. 顶栏可看连接状态；想隐藏时切回「对话」即可——**终端和会话都还在**。
+4. The tab bar shows connection status; switch back to **Chat** whenever you like — your terminal and session are still there.
 
 ---
 
-## 🧩 技术栈
+## 🧩 Tech Stack
 
-| 层 | 选型 | 说明 |
+| Layer | Choice | Notes |
 |---|---|---|
-| 前端终端 | [`@xterm/xterm`](https://github.com/xtermjs/xterm.js) + `@xterm/addon-fit` | 打包进 client bundle（`lib/client.js`），`__ModuleLoader__.load` 注册 |
-| 后端 PTY | [`node-pty`](https://github.com/microsoft/node-pty) | 原生 PTY（Windows ConPTY / POSIX pty），进程常驻 |
-| 传输 | [`ws`](https://github.com/websockets/ws) | 经 `ctx.webServer` 提供 WebSocket 双向字节流 + resize |
-| UI 装配 | `ctx.slots.inject('conversation.view')` | 注册 `id:'terminal'` tab，与官方 `dsh-client-ui-trajectory` 同构 |
+| Front-end terminal | [`@xterm/xterm`](https://github.com/xtermjs/xterm.js) + `@xterm/addon-fit` | Bundled into the client bundle (`lib/client.js`), registered via `__ModuleLoader__.load` |
+| Back-end PTY | [`node-pty`](https://github.com/microsoft/node-pty) | Native PTY (Windows ConPTY / POSIX pty), resident process |
+| Transport | [`ws`](https://github.com/websockets/ws) | WebSocket bidirectional byte stream + resize via `ctx.webServer` |
+| UI integration | `ctx.slots.inject('conversation.view')` | Registers the `id:'terminal'` tab, mirroring `dsh-client-ui-trajectory` |
 
-### 为什么是“真”终端 & 与官方 `dsh-terminal` 的区别
+### Why a “real” terminal — and how it differs from the built-in `dsh-terminal`
 
-dsh 自带 `ctx.terminals` 是 **Agent 所有权 + 模型面 line-oriented** 语义，无浏览器传输、Windows 下不可用。
-我们选择直接用 `node-pty` **spawn 一个完全属于你的 shell**，与 agent 会话彻底解耦——这是**你自己的终端**。
+The built-in `ctx.terminals` is **agent-owned, model-facing, line-oriented**, with no browser transport and unavailable on Windows.
+Here we instead **spawn a shell that belongs entirely to you** via `node-pty`, fully decoupled from the agent session — it is *your own* terminal.
 
 ---
 
-## 🔧 本地开发
+## 🔧 Local Development
 
 ```bash
-pnpm install     # 依赖（含类型）
-pnpm build       # 产出 lib/index.js + lib/client.js + lib/client.css
-pnpm typecheck   # tsc --noEmit
+pnpm install     # install deps (types included)
+pnpm build       # outputs lib/index.js + lib/client.js + lib/client.css
+pnpm typecheck   # tsc --noEmit type check
 ```
 
-- 改 **host half**（`src/`）：重启 `dsh web`；
-- 改 **client half**（`src/client/`）：重装 + 刷新页面即可。
+- Changing the **host half** (`src/`) requires a `dsh web` restart;
+- Changing the **client half** (`src/client/`) just needs a reinstall + page refresh.
 
 ---
 
 ## ❓ FAQ
 
-**Q：这个终端会占用我的对话上下文吗？**
-不会。终端与模型/agent 会话完全解耦，不写入上下文，也不混入会话记录。
+**Q: Does this terminal consume my conversation context?**
+No. It is fully decoupled from the model/agent conversation — nothing is written to context and nothing mixes into the chat log.
 
-**Q：重启/刷新后会话还在吗？**
-在。会话池由插件持有，跨会话、跨刷新保活；重连后自动补回最近的输出历史。
+**Q: Will my session survive a restart/refresh?**
+Yes. The session pool lives plugin-side and survives across sessions and reloads; on reconnect it replays the latest output.
 
-**Q：只想临时跑一条命令，也要开终端吗？**
-打开后进程常驻，你可以在里面持续操作；切走再切回仍是同一个 shell。
+**Q: I only want to run a single command — must I open a terminal?**
+Once open the process stays resident, so you can keep operating inside it; switching away and back returns to the same shell.
 
-**Q：能换 shell / 自定义路径吗？**
-可以。在「设置 → 插件 → 终端」面板里切换 `bash / zsh / pwsh / powershell / cmd / python`，或填自定义 shell 绝对路径与附加参数。默认 Windows→PowerShell、POSIX→bash 自动识别。
+**Q: Can I swap shells / use a custom path?**
+Yes. In **Settings → Plugins → Terminal**, pick `bash / zsh / pwsh / powershell / cmd / python` or enter a custom absolute shell path and extra args. It auto-detects PowerShell on Windows and bash on POSIX by default.
 
 ---
 
-## 📄 GitHub 仓库信息（About）
+## 📄 GitHub Repo Info (About)
 
-**Description（一句话）**
-> DSH 插件：给 DeepSeek Harness 的 Web 界面加一个独立的真实 PTY「终端」Tab（xterm.js + node-pty，Windows ConPTY），编码后即时跑命令，与模型会话解耦、跨会话保活。
+**Description (one-liner)**
+> A DSH plugin that adds a real, independent PTY Terminal tab (xterm.js + node-pty, Windows ConPTY) to the DeepSeek Harness web UI — run commands instantly after coding, decoupled from the model and surviving across sessions.
 
 **Topics**
 > `dsh` · `dsh-bundle` · `deepseek-harness` · `dsh-plugin` · `terminal` · `xterm` · `node-pty`
 
-> 添加 topics 后，插件会被 Oh-MY-DSH 等目录站自动收录，被更多人发现。
+> Adding these topics lets directories like Oh-MY-DSH pick the plugin up automatically so more people can find it.
 
 ---
 
 ## 📝 License
 
 [MIT](./LICENSE) © [helays](https://github.com/helays)
-
----
-
-<br/>
-
-# <a name="english-readme"></a> 🖥 English
-
-> **A real PTY Terminal as a first-class tab inside DeepSeek Harness** — build, debug, and run commands right next to your AI conversation, without leaving the page.
-
-<div align="center">
-
-![License](https://img.shields.io/badge/License-MIT-yellowgreen?style=flat-square)
-![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)
-![Platform](https://img.shields.io/badge/platform-DeepSeek%20Harness-4f8cff?style=flat-square)
-![Type](https://img.shields.io/badge/type-dsh--plugin-7c3aed?style=flat-square)
-
-</div>
-
-**Why you'll love it**
-
-- 🗂️ A dedicated **Terminal** tab next to Chat & Trajectory.
-- 🧯 A **real PTY** (Windows ConPTY / POSIX interactive shell), not a toy:
-  `Ctrl+C`, resize, colors, persistent session, streaming output.
-- 🔄 **Survives tab switches & page reloads** — reconnect and replay scrollback automatically.
-- 🚪 **Zero context pollution** — the terminal is fully decoupled from the model/agent conversation.
-- ⚡ **Zero config** — auto-detects PowerShell on Windows, bash on POSIX; switch shells from the settings panel.
-- ⌨️ `/terminal` in the composer jumps straight to it (single-step, same as official `/plan`), even in an empty session.
-
-**Install**
-
-```bash
-dsh plugin --profile web add dsh-web-terminal@github:helays/dsh-web-terminal#main -w
-```
-
-> `-w` is required (the profile is a pnpm workspace root; omit it and you'll hit `ERR_PNPM_ADDING_TO_ROOT`). Then **restart `dsh web`** and refresh.
-
-**Usage** — open a session → click the **Terminal** tab (or type `/terminal`) → run commands:
-
-```bash
-npm run build
-git status
-pytest
-```
-
-Your shell stays alive across switches; the model and the terminal never interfere with each other.
-
-**Tech** — `@xterm/xterm` + `@xterm/addon-fit` (client) · `node-pty` (real PTY, Windows ConPTY) · `ws` (WebSocket) · `ctx.slots` (native UI slot integration).
-
-**Development** — `pnpm install && pnpm build && pnpm typecheck`.
-
-**Repo info**
-> Description: *A DSH plugin that adds a real, independent PTY Terminal tab (xterm.js + node-pty, Windows ConPTY) to the DeepSeek Harness web UI — run commands instantly after coding, decoupled from the model and surviving across sessions.*Topics: `dsh, dsh-bundle, deepseek-harness, dsh-plugin, terminal, xterm, node-pty`.
-
-**License** — [MIT](./LICENSE) © [helays](https://github.com/helays)

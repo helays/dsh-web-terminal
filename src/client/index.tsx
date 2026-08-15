@@ -1,24 +1,30 @@
 import type { Context } from '@deepseek-ai/cordis'
-// Type-only：client 侧服务（slots/locale/sessions）与 SlotMap('conversation.view') 的类型合并
+// Type-only：client 侧服务（slots/locale/sessions/commandUi）与槽位/命令契约的类型合并
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
 import { en, NS, zh } from './locales.ts'
 import { TerminalView, type TerminalViewInjected } from './TerminalView.tsx'
 import { TerminalSettingsCard } from './TerminalSettingsCard.tsx'
 
 const PREFIX = '/terminal'
 
-/** cordis 服务级 inject：slots（注册槽位）、locale（字典）、sessions（会话 id）。 */
-export const inject = ['slots', 'locale', 'sessions']
+/** cordis 服务级 inject：slots、locale、sessions、commandUi（/terminal 斜杠命令）。 */
+export const inject = ['slots', 'locale', 'sessions', 'commandUi']
+
+/** 恒挂载的空渲染条目：持有与 ui-conversation 共享的 chat store handle，
+ * 捕获每会话 setView bound actions，供 /terminal 命令切换视图用。 */
+function ViewSwitchCapture(): null {
+  return null
+}
 
 export function apply(ctx: Context): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-web-terminal: dictionaries')
   const t = ctx.locale.bind(NS)
 
   // ===== 插件级 PTY 会话池缓存（apply 闭包） =====
-  // conversation sessionId -> 后端 terminalId；视图挂载时惰性创建，只 attach 不销毁。
   const terminalBySession = new Map()
 
   const ensureTerminal = async (
@@ -42,7 +48,7 @@ export function apply(ctx: Context): void {
     return id
   }
 
-  // 注入面：把 ensureTerminal 交给「终端 tab」（inject 工厂必须同步）
+  // 注入面：把 ensureTerminal 交给「终端 tab」
   ctx.slots.inject('conversation.view', () =>
     ctx.slots.register(
       {
@@ -59,7 +65,7 @@ export function apply(ctx: Context): void {
     ),
   )
 
-  // 自绘「终端」配置卡片：出现在 Web 设置 → 插件，走自己的 /terminal/config RPC
+  // 自绘「终端」配置卡片
   ctx.slots.inject('settings.plugin.item', () =>
     ctx.slots.register(
       {
@@ -71,6 +77,52 @@ export function apply(ctx: Context): void {
       TerminalSettingsCard,
     ),
   )
+
+  // ===== /terminal 斜杠命令：切到「终端」视图 =====
+  // 官方把活跃视图 id 存在共享 chat store，写面是「声明同一 store handle 的条目」被渲染器
+  // 追加的 bound actions。类型层未向第三方暴露该 store/actions 契约（运行时存在，调研确认），
+  // 故此处用宽松断言；再在恒挂载的 header.actions 槽位捕获每会话 setView。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registerWithStore = (ctx as any).slots.register as (...args: any[]) => () => void
+  const viewActions = new Map<string, { setView(view: string): void }>()
+
+  ctx.slots.inject('conversation.session.header.actions', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawEntries = ctx.slots.entries?.('conversation.view') as unknown as any[] | undefined
+    const chatEntries = (rawEntries ?? []) as Array<{ options?: { id?: string }; store?: unknown }>
+    const chatEntry = chatEntries.find((e) => e.options?.id === 'chat')
+    const chatStore = chatEntry?.store
+    if (chatStore === undefined) return () => {}
+    return registerWithStore(
+      {
+        name: 'conversation.session.header.actions',
+        store: chatStore, // 声明共享 handle → 渲染器把 bound actions 追加进 inject 参数
+        id: 'dsh-web-terminal.view-switch',
+        order: 1000,
+        inject: (sessionId: string, actions: unknown) => {
+          const set = (actions as { setView?: (v: string) => void } | undefined)?.setView
+          if (typeof set === 'function') {
+            viewActions.set(sessionId, { setView: set })
+          }
+          return {}
+        },
+      },
+      ViewSwitchCapture,
+    )
+  })
+
+  ctx.commandUi.register({
+    name: 'terminal',
+    description: '切换到「终端」视图',
+    available: () => true,
+    ui: {
+      kind: 'popupSelect',
+      options: async () => [{ id: 'terminal', label: t('view.terminal') }],
+      onSelect: (_option, session) => {
+        viewActions.get(session.sessionId)?.setView('terminal')
+      },
+    },
+  })
 }
 
 // 别名导出，供 esbuild 的 factory 拿 { apply, inject }

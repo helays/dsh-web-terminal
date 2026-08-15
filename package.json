@@ -43,6 +43,7 @@
     "react": "^18.2.0"
   },
   "devDependencies": {
+    "@deepseek-ai/dsh-client-ui-commands": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-settings-plugins": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-host-webserver": "^0.1.0-rc.6",
